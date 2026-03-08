@@ -1,0 +1,30 @@
+# Configuration for Prometheus, a metrics collection system that scrapes performance data
+# from your service (like request counts, response times, error rates). 
+# Think of it as a data collector that watches your service's health.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Resource microservice metrics
+  - job_name: 'resource-service'
+    static_configs:
+      - targets: ['resource-service:8080']
+    scrape_interval: 5s
+    metrics_path: /metrics
+    scheme: http
+
+  # Additional services can be added here
+  # - job_name: 'other-service'
+  #   static_configs:
+  #     - targets: ['other-service:8080']

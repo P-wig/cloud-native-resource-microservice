@@ -1,0 +1,78 @@
+# Docker Compose for your microservice
+# Customize this for your team's needs
+
+version: '3.8'
+
+services:
+  # Your main microservice
+  your-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"  # Adjust port for your service
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/your_db
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=docker
+    depends_on:
+      - db
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # TODO: Add database service your team needs
+  # Example PostgreSQL:
+  # db:
+  #   image: postgres:15
+  #   container_name: postgres_db
+  #   environment:
+  #     - POSTGRES_DB=your_db
+  #     - POSTGRES_USER=user
+  #     - POSTGRES_PASSWORD=password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - app-network
+
+  # TODO: Add Redis for caching if needed
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: redis_cache
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - app-network
+
+  # TODO: Add other team members' services
+  # user-service:
+  #   image: your-team/user-service:latest
+  #   ports:
+  #     - "5001:5000"
+  #   networks:
+  #     - app-network
+  # 
+  # inventory-service:
+  #   image: your-team/inventory-service:latest
+  #   ports:
+  #     - "5002:5000"
+  #   networks:
+  #     - app-network
+
+# TODO: Define volumes for data persistence
+# volumes:
+#   postgres_data:
+#   redis_data:
+
+networks:
+  app-network:
+    driver: bridge
+
+# Example of what you might need:
+# - Database (PostgreSQL, MySQL, MongoDB)
+# - Cache (Redis, Memcached)
+# - Message Queue (RabbitMQ, Redis)
+# - Other team members' microservices
+# - Load balancer (nginx) if needed

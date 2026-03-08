@@ -1,0 +1,103 @@
+/*
+Protocol Buffer Definition File
+
+This file defines the API contract for your gRPC microservice.
+It specifies:
+- What methods (RPCs) your service exposes
+- What data structures (messages) it uses
+- Input/output formats for each method
+
+When you run 'make proto', this file generates Python code that:
+- Creates classes for all your messages
+- Generates server stubs (implement these in your service)
+- Generates client stubs (other services use these to call you)
+
+EXAMPLE API CONTRACT:
+
+syntax = "proto3";
+
+package user.v1;
+
+// Service definition - the API your microservice exposes
+service UserService {
+  // Create a new user account
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  
+  // Get user by email address  
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  
+  // Update user profile
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+}
+
+// Message definitions - the data structures
+message User {
+  string id = 1;                    // Unique user ID
+  string email = 2;                 // User's email
+  string name = 3;                  // Full name
+  UserStatus status = 4;            // Account status
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Enums for predefined values
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;     // Always have unspecified as 0
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_SUSPENDED = 2;
+  USER_STATUS_DELETED = 3;
+}
+
+// Request/Response messages for each RPC
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+}
+
+message CreateUserResponse {
+  User user = 1;
+  string message = 2;
+}
+
+message GetUserRequest {
+  string email = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+// Import built-in types you need
+import "google/protobuf/timestamp.proto";
+
+DEFINE YOUR SERVICE'S API CONTRACT BELOW:
+*/
+
+syntax = "proto3";
+
+// TODO: Define your package name (e.g., "inventory.v1", "orders.v1", "auth.v1")
+package yourservice.v1;
+
+// TODO: Define your service with the methods you need
+// service YourService {
+//   rpc YourMethod(YourRequest) returns (YourResponse);
+// }
+
+// TODO: Define your data structures (messages)
+// message YourDataModel {
+//   string id = 1;
+//   string name = 2;
+//   // Add fields your service needs
+// }
+
+// TODO: Define request/response messages for each RPC
+// message YourRequest {
+//   string some_field = 1;
+// }
+
+// message YourResponse {
+//   YourDataModel result = 1;
+// }
+
+// TODO: Import any built-in types you need
+// import "google/protobuf/timestamp.proto";
