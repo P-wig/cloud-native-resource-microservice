@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package haas.hardware.v1;
+
+option go_package = "github.com/haas/gen/hardware/v1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service HardwareService {
+    rpc GetHardwareResources (google.protobuf.Empty) returns (HardwareListResponse) {}
+    rpc RequestHardware      (HardwareRequest)       returns (Hardware)             {}
+    rpc ReturnHardware       (HardwareRequest)       returns (Hardware)             {}
+}
+
+// --- Request Messages ---
+
+message HardwareRequest {
+    string hw_set_id  = 1;
+    string project_id = 2;
+    uint32 quantity   = 3;
+}
+
+// --- Response / Entity Messages ---
+
+message Hardware {
+    string                    hw_set_id   = 1;
+    string                    name        = 2;
+    uint32                    capacity    = 3;
+    uint32                    available   = 4;
+    uint32                    checked_out = 5;
+    google.protobuf.Timestamp updated_at  = 6;
+}
+
+message HardwareListResponse {
+    repeated Hardware hardware_sets = 1;
+}
