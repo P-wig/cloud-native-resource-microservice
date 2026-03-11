@@ -1,3 +1,7 @@
+/* 
+    proto file shared by group 7
+*/
+
 syntax = "proto3";
 
 package haas.hardware.v1;

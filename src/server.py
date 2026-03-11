@@ -51,25 +51,6 @@ if __name__ == '__main__':
     app = create_app()
     app.run(host='0.0.0.0', port=5000)
 
-EXAMPLE IMPLEMENTATION (FastAPI):
-
-from fastapi import FastAPI
-from .config.settings import get_settings
-from .routes import user_router, order_router
-
-def create_app():
-    app = FastAPI(title="Your Service API")
-    
-    # Include routers
-    app.include_router(user_router, prefix="/users")
-    app.include_router(order_router, prefix="/orders")
-    
-    @app.get("/health")
-    def health_check():
-        return {"status": "healthy"}
-    
-    return app
-
 DEFINE YOUR SERVER SETUP BELOW:
 """
 
