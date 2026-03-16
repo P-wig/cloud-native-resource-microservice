@@ -1,76 +1,76 @@
 """
-Main server application entry point.
+gRPC Transport Layer — server.py
 
-This file should contain:
-- Server initialization and configuration
-- Service dependency injection
-- Server startup and shutdown logic
-- Health checks and monitoring setup
-- Signal handling for graceful shutdown
+This is the only file in the codebase that knows about gRPC.
+Its responsibilities are:
+  - Define the gRPC servicer class that implements the HardwareService RPC methods
+  - Receive incoming RPC requests and pass them to the service layer
+  - Catch domain exceptions from the service layer and translate them into
+    gRPC status codes (INVALID_ARGUMENT, NOT_FOUND, FAILED_PRECONDITION, etc.)
+  - Wire together the repository, service, and gRPC server at startup
+  - Handle server startup, graceful shutdown, and health checks
 
-For Flask integration, this might be replaced with Flask app factory.
-For gRPC, this contains the gRPC server setup.
-
-EXAMPLE IMPLEMENTATION (Flask):
-
-from flask import Flask
-from .config.settings import get_settings
-from .utils.logging import setup_logging
-from .services.user_service import UserService
-from .repositories.user_repository import DatabaseUserRepository
-
-def create_app():
-    ""Flask application factory.""
-    app = Flask(__name__)
-    settings = get_settings()
-    
-    # Configure logging
-    setup_logging(settings.log_level)
-    
-    # Initialize database
-    db = init_database(settings.database_url)
-    
-    # Initialize repositories
-    user_repo = DatabaseUserRepository(db)
-    
-    # Initialize services
-    user_service = UserService(user_repo)
-    
-    # Register routes
-    from .routes.user_routes import user_bp
-    app.register_blueprint(user_bp)
-    
-    # Health check endpoint
-    @app.route('/health')
-    def health_check():
-        return {'status': 'healthy'}
-    
-    return app
-
-if __name__ == '__main__':
-    app = create_app()
-    app.run(host='0.0.0.0', port=5000)
-
-DEFINE YOUR SERVER SETUP BELOW:
+What does NOT belong here:
+  - Business rules or validation logic  → src/services/resource_service.py
+  - Database queries                    → src/repositories/resource_repository.py
+  - Proto message definitions           → proto/hardware.proto
 """
 
-# TODO: Import necessary frameworks (Flask, FastAPI, gRPC, etc.)
+import grpc
+from src.services.resource_service import (
+    HardwareService,
+    InvalidHardwareRequestError,
+    HardwareNotFoundError,
+    InsufficientHardwareError,
+)
+from src.generated import hardware_pb2_grpc  # generated after running make proto
 
-# TODO: Define application factory function
+# TODO (separate branch): import hardware_pb2 for constructing HardwareListResponse
+# from src.generated import hardware_pb2
 
-# TODO: Set up dependency injection for services and repositories
 
-# TODO: Configure routes/endpoints
+class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
 
-# TODO: Add health checks and monitoring
+    # DONE: Servicer class defined and wired to HardwareService
+    # DONE: RequestHardware implemented with full error mapping:
+    #         INVALID_ARGUMENT, NOT_FOUND, FAILED_PRECONDITION
 
-# Examples of what you might need:
-# - Flask application setup
-# - Database connection initialization
-# - Service and repository dependency injection
-# - Route registration
-# - Middleware configuration (CORS, authentication, logging)
-# - Error handlers
-# - Health check endpoints
-# - Graceful shutdown handling
-# - Integration with your team's main Flask app
+    def __init__(self, hardware_service: HardwareService):
+        self.hardware_service = hardware_service
+
+    async def RequestHardware(self, request, context):
+        try:
+            return await self.hardware_service.request_hardware(
+                hw_set_id=request.hw_set_id,
+                project_id=request.project_id,
+                quantity=request.quantity,
+            )
+        except InvalidHardwareRequestError as exc:
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+        except HardwareNotFoundError as exc:
+            await context.abort(grpc.StatusCode.NOT_FOUND, str(exc))
+        except InsufficientHardwareError as exc:
+            await context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+
+    # TODO (separate branch): Implement ReturnHardware
+    #   - Mirror RequestHardware error handling (same three status codes)
+    #   - Call self.hardware_service.return_hardware() once implemented in service layer
+    async def ReturnHardware(self, request, context):
+        pass
+
+    # TODO (separate branch): Implement GetHardwareResources
+    #   - No request validation needed (takes an Empty message)
+    #   - Call repository.get_all_hardware() via the service layer
+    #   - Return a HardwareListResponse wrapping the list of Hardware messages
+    async def GetHardwareResources(self, request, context):
+        pass
+
+
+# TODO (separate branch): Add serve() function to start the gRPC server
+#   - Create grpc.aio.server()
+#   - Instantiate HardwareRepository with a real DB session
+#   - Instantiate HardwareService with the repository
+#   - Add HardwareServicer to the server via hardware_pb2_grpc.add_HardwareServiceServicer_to_server()
+#   - Bind to the configured port (from src/config/settings.py)
+#   - Add gRPC health check service
+#   - Call server.start() and server.wait_for_termination()

@@ -8,55 +8,40 @@ This file should contain:
 - Database connection management
 - Data validation and transformation
 - Repository pattern implementations
-
-EXAMPLE IMPLEMENTATION:
-
-from abc import ABC, abstractmethod
-from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-
-class UserRepository(ABC):
-    @abstractmethod
-    async def create(self, user_data: dict) -> User:
-        pass
-    
-    @abstractmethod
-    async def find_by_email(self, email: str) -> Optional[User]:
-        pass
-    
-    @abstractmethod
-    async def update(self, user_id: str, data: dict) -> User:
-        pass
-    
-    @abstractmethod
-    async def delete(self, user_id: str) -> bool:
-        pass
-
-class DatabaseUserRepository(UserRepository):
-    def __init__(self, db_session: AsyncSession):
-        self.db = db_session
-    
-    async def create(self, user_data: dict) -> User:
-        # Database insert logic
-        pass
-    
-    async def find_by_email(self, email: str) -> Optional[User]:
-        # Database query logic
-        pass
-
-DEFINE YOUR REPOSITORY LAYER BELOW:
 """
 
-# TODO: Import necessary libraries (sqlalchemy, your ORM, etc.)
+# DONE: HardwareRepository class defined and wired to HardwareService
+# DONE: get_hardware() stub in place — called by request_hardware() and return_hardware() in service layer
+# DONE: update_hardware_allocation() stub in place — called after validation passes in service layer
 
-# TODO: Define abstract repository interfaces for your domain objects
+# TODO (separate branch): Implement get_hardware()
+#   - Query database by hw_set_id
+#   - Return None if no record found (service layer converts this to NOT_FOUND)
+#   - Return a Hardware proto message or internal dataclass on success
 
-# TODO: Implement concrete repository classes (Database, InMemory, etc.)
+# TODO (separate branch): Implement update_hardware_allocation()
+#   - For RequestHardware:  decrement available, increment checked_out by quantity
+#   - For ReturnHardware:   increment available, decrement checked_out by quantity
+#   - Return the updated Hardware proto message
 
-# Examples of what you might need:
-# - UserRepository with methods like find_by_email(), create(), update()
-# - OrderRepository with methods like find_by_user(), get_pending_orders()
-# - ProductRepository with methods like search(), get_by_category()
-# - Database connection management
-# - Query builders and filters
-# - Data validation and sanitization
+# TODO (separate branch): Add get_all_hardware()
+#   - Required by GetHardwareResources RPC in hardware.proto
+#   - Returns a list of all Hardware records for HardwareListResponse
+
+# TODO (separate branch): Choose and wire up a real database
+#   - Replace the untyped `db` parameter with a real session type once the DB is chosen
+#   - e.g. AsyncSession (SQLAlchemy), Firestore client, Mongo collection, etc.
+#   - Add connection management / dependency injection in server.py
+
+
+class HardwareRepository:
+    def __init__(self, db):
+        self.db = db
+
+    async def get_hardware(self, hw_set_id: str):
+        # query your database — return None if not found
+        ...
+
+    async def update_hardware_allocation(self, hw_set_id, project_id, quantity):
+        # update available/checked_out counts, return updated Hardware proto message
+        ...

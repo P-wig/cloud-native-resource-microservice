@@ -1,62 +1,68 @@
-"""
-Main business logic service implementation.
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
-This file should contain:
-- Core business logic for your domain (users, orders, inventory, etc.)
-- Service classes that orchestrate between repositories and external APIs
-- Business rules and validation
-- Transaction management
-- Integration with other team members' services
+if TYPE_CHECKING:
+    from src.repositories.resource_repository import HardwareRepository
 
-Keep this layer independent of HTTP/gRPC transport details.
+# DONE: Domain exceptions defined for all three gRPC error conditions
+#   - InvalidHardwareRequestError  → maps to INVALID_ARGUMENT  in server.py
+#   - HardwareNotFoundError        → maps to NOT_FOUND         in server.py
+#   - InsufficientHardwareError    → maps to FAILED_PRECONDITION in server.py
 
-EXAMPLE IMPLEMENTATION:
+class InvalidHardwareRequestError(Exception):
+    pass
 
-class UserService:
-    def __init__(self, user_repo: UserRepository, email_service: EmailService):
-        self.user_repo = user_repo
-        self.email_service = email_service
-    
-    async def create_user(self, user_data: dict) -> User:
-        # Business logic: validate email format, check duplicates
-        existing = await self.user_repo.find_by_email(user_data['email'])
-        if existing:
-            raise UserAlreadyExistsError()
-        
-        # Create user
-        user = await self.user_repo.create(user_data)
-        
-        # Send welcome email
-        await self.email_service.send_welcome_email(user.email)
-        
-        return user
-    
-    async def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        # Business logic for authentication
+class HardwareNotFoundError(Exception):
+    pass
+
+class InsufficientHardwareError(Exception):
+    def __init__(self, requested: int, available: int):
+        self.requested = requested
+        self.available = available
+        super().__init__(f"requested {requested}, but only {available} available")
+
+
+# DONE: HardwareService class defined and wired to repository
+# DONE: request_hardware() implemented with full validation and error coverage
+#   - INVALID_ARGUMENT:    missing hw_set_id, project_id, or quantity == 0
+#   - NOT_FOUND:           hardware set does not exist in repository
+#   - FAILED_PRECONDITION: requested quantity exceeds available inventory
+
+# TODO (separate branch): Implement return_hardware()
+#   - Same input validation as request_hardware (INVALID_ARGUMENT)
+#   - Check hardware exists (NOT_FOUND)
+#   - Check quantity <= hardware.checked_out — can't return more than was checked out (FAILED_PRECONDITION)
+#   - Call repository.update_hardware_allocation() to release the units back
+
+# TODO (separate branch): Add type annotations to HardwareService.__init__() once
+#   HardwareRepository is implemented in src/repositories/resource_repository.py
+
+class HardwareService:
+    def __init__(self, repository: "HardwareRepository"):
+        self.repository = repository
+
+    async def request_hardware(self, hw_set_id: str, project_id: str, quantity: int):
+        # Covers INVALID_ARGUMENT
+        if not hw_set_id or not project_id or quantity == 0:
+            raise InvalidHardwareRequestError(
+                "hw_set_id, project_id, and quantity > 0 are all required"
+            )
+
+        # Covers NOT_FOUND
+        hardware = await self.repository.get_hardware(hw_set_id)
+        if hardware is None:
+            raise HardwareNotFoundError(f"hardware set '{hw_set_id}' not found")
+
+        # Covers FAILED_PRECONDITION
+        if quantity > hardware.available:
+            raise InsufficientHardwareError(quantity, hardware.available)
+
+        return await self.repository.update_hardware_allocation(
+            hw_set_id=hw_set_id,
+            project_id=project_id,
+            quantity=quantity,
+        )
+
+    # TODO (separate branch): implement return_hardware()
+    async def return_hardware(self, hw_set_id: str, project_id: str, quantity: int):
         pass
-
-class OrderService:
-    def __init__(self, order_repo: OrderRepository, inventory_service: InventoryService):
-        self.order_repo = order_repo
-        self.inventory_service = inventory_service
-    
-    async def create_order(self, order_data: dict) -> Order:
-        # Business logic: check inventory, calculate totals, etc.
-        pass
-
-DEFINE YOUR BUSINESS LOGIC BELOW:
-"""
-
-# TODO: Import necessary libraries and your repository classes
-
-# TODO: Define your service classes with business logic
-
-# TODO: Implement methods that orchestrate between repositories and external services
-
-# Examples of what you might need:
-# - UserService with methods like create_user(), authenticate(), update_profile()
-# - OrderService with methods like create_order(), cancel_order(), calculate_total()
-# - InventoryService with methods like check_availability(), reserve_items()
-# - EmailService for notifications
-# - PaymentService for processing payments
-# - Integration with your teammates' microservices
