@@ -10,11 +10,11 @@ help: ## Show this help message
 
 # Development setup
 install: ## Install production dependencies
-	pip install -r requirements.txt
+    pip install .
 
 install-dev: ## Install development dependencies
-	pip install -r requirements-dev.txt
-	pre-commit install
+    pip install -e ".[dev,docs]"
+    pre-commit install
 
 # Code quality
 format: ## Format code with black and isort

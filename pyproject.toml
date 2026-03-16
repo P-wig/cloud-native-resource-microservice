@@ -20,13 +20,37 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+# Runtime dependencies — everything needed to run the service
+dependencies = [
+    "grpcio==1.60.1",
+    "grpcio-status==1.60.1",
+    "protobuf==4.25.3",
+    "pydantic==2.6.1",
+    "pydantic-settings==2.1.0",
+    "python-dotenv==1.0.1",
+    "structlog==24.1.0",
+    "prometheus-client==0.19.0",
+    "opentelemetry-api==1.22.0",
+    "opentelemetry-sdk==1.22.0",
+    "opentelemetry-instrumentation-grpc==0.43b0",
+]
+
 [project.optional-dependencies]
+# Code generation, linting, formatting, type-checking, and interactive tools
 dev = [
-    "black",
-    "isort",
-    "flake8",
-    "mypy",
-    "pre-commit",
+    "grpcio-tools==1.60.1",
+    "black==24.2.0",
+    "isort==5.13.2",
+    "flake8==7.0.0",
+    "mypy==1.8.0",
+    "pre-commit==3.6.2",
+    "ipython==8.21.0",
+    "jupyter==1.0.0",
+]
+# Documentation generation
+docs = [
+    "sphinx==7.2.6",
+    "sphinx-rtd-theme==2.0.0",
 ]
 
 [tool.black]
