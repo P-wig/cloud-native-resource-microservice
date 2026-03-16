@@ -22,9 +22,9 @@ classifiers = [
 
 # Runtime dependencies — everything needed to run the service
 dependencies = [
-    "grpcio==1.60.1",
-    "grpcio-status==1.60.1",
-    "protobuf==4.25.3",
+    "grpcio==1.78.0",
+    "grpcio-status==1.78.0",
+    "protobuf==6.33.5",
     "pydantic==2.6.1",
     "pydantic-settings==2.1.0",
     "python-dotenv==1.0.1",
@@ -38,7 +38,8 @@ dependencies = [
 [project.optional-dependencies]
 # Code generation, linting, formatting, type-checking, and interactive tools
 dev = [
-    "grpcio-tools==1.60.1",
+    "setuptools",
+    "grpcio-tools==1.78.0",
     "black==24.2.0",
     "isort==5.13.2",
     "flake8==7.0.0",

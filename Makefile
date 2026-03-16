@@ -1,7 +1,7 @@
 # Makefile for Python Microservice
 # Customize this for your team's specific service
 
-.PHONY: help install install-dev format lint build run docker-build docker-run docker-compose-up docker-compose-down clean
+.PHONY: help install install-dev format lint build run docker-build docker-run docker-compose-up docker-compose-down clean proto
 
 # Default target
 help: ## Show this help message
@@ -10,11 +10,11 @@ help: ## Show this help message
 
 # Development setup
 install: ## Install production dependencies
-    pip install .
+	pip install .
 
 install-dev: ## Install development dependencies
-    pip install -e ".[dev,docs]"
-    pre-commit install
+	pip install -e ".[dev,docs]"
+	pre-commit install
 
 # Code quality
 format: ## Format code with black and isort
@@ -28,16 +28,13 @@ lint: ## Lint code with flake8 and mypy
 # Testing removed - not needed in this repo yet
 
 # Protocol Buffers (optional - customize for your service)
-proto: ## Generate gRPC code from proto files (if using gRPC)
-	@echo "Note: Proto file is currently a template. Define your service first."
-	@mkdir -p src/generated
-	# TODO: Uncomment when you have a real proto definition
-	# python -m grpc_tools.protoc \
-	# 	--python_out=src/generated \
-	# 	--grpc_python_out=src/generated \
-	# 	--proto_path=proto \
-	# 	proto/*.proto
-	# @echo "Generated gRPC code in src/generated/"
+proto: ## Generate gRPC code from proto files
+	python -m grpc_tools.protoc \
+        --python_out=src/generated \
+        --grpc_python_out=src/generated \
+        --proto_path=proto \
+        proto/*.proto
+	@echo "Generated gRPC code in src/generated/"
 
 # Build and run
 build: ## Build the application (install deps)
