@@ -5,18 +5,17 @@ version: '3.8'
 
 services:
   # Your main microservice
-  your-service:
+  hardware-service:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"  # Adjust port for your service
+      - "50051:50051"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/your_db
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=50051
       - LOG_LEVEL=INFO
       - ENVIRONMENT=docker
-    depends_on:
-      - db
     networks:
       - app-network
     restart: unless-stopped

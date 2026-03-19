@@ -1,15 +1,14 @@
-# Cloud Native Resource Microservice
+# Hardware Resource Microservice
 
-A production-ready gRPC microservice for managing cloud resources, built with Python and designed for cloud-native environments.
+A gRPC microservice for managing hardware allocation in the HaaS (Hardware as a Service) platform, built with Python.
 
 ## Features
 
-- **gRPC API**: High-performance, type-safe API using Protocol Buffers
-- **Cloud Native**: Designed for containerized environments with health checks
-- **Observability**: Built-in metrics (Prometheus), logging (structured), and tracing (OpenTelemetry)
-- **Scalable**: Async/await pattern with configurable workers
-- **Production Ready**: Comprehensive error handling, validation, and monitoring
-- **Developer Friendly**: Full development environment with linting and formatting
+- **gRPC API**: Type-safe API defined in `proto/hardware.proto`
+- **Layered Architecture**: Servicer → Service → Repository separation of concerns
+- **Structured domain errors**: `INVALID_ARGUMENT`, `NOT_FOUND`, and `FAILED_PRECONDITION` mapped cleanly from service-layer exceptions
+- **Async/await**: All RPC handlers and repository calls are fully async
+- **Observability**: Prometheus metrics, structured logging (structlog), and OpenTelemetry tracing wired in via dependencies
 
 ## Architecture
 
