@@ -4,7 +4,7 @@ import grpc
 import warnings
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-import hardware_pb2 as hardware__pb2
+from . import hardware_pb2 as hardware__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
@@ -72,6 +72,11 @@ class HardwareServiceServicer(object):
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
+
+    async def get_all_hardware(self):
+        """Call repository.get_all_hardware() to fetch all Hardware records.
+        Return list of Hardware proto messages for GetHardwareResources RPC."""
+        return await self.repository.get_all_hardware()
 
 
 def add_HardwareServiceServicer_to_server(servicer, server):

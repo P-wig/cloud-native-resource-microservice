@@ -66,3 +66,7 @@ class HardwareService:
     # TODO (separate branch): implement return_hardware()
     async def return_hardware(self, hw_set_id: str, project_id: str, quantity: int):
         pass
+
+    async def get_all_hardware(self):
+        """Retrieve all hardware sets."""
+        return await self.repository.get_all_hardware()

@@ -1,5 +1,4 @@
 # Makefile for Python Microservice
-# Customize this for your team's specific service
 
 .PHONY: help install install-dev format lint build run docker-build docker-run docker-compose-up docker-compose-down clean proto
 
@@ -25,9 +24,12 @@ lint: ## Lint code with flake8 and mypy
 	flake8 src
 	mypy src
 
-# Testing removed - not needed in this repo yet
 
-# Protocol Buffers (optional - customize for your service)
+# NOTE: The proto target includes post-processing to fix relative imports in generated gRPC code.
+# This ensures hardware_pb2_grpc.py imports its sibling as `from . import hardware_pb2`
+# rather than a top-level absolute import, which is required for the src.generated package
+# to be imported cleanly from src.server and other modules.
+# See: https://github.com/grpc/grpc/issues/10855
 proto: ## Generate gRPC code from proto files
 	python -m grpc_tools.protoc \
         --python_out=src/generated \
@@ -35,18 +37,15 @@ proto: ## Generate gRPC code from proto files
         --proto_path=proto \
         proto/*.proto
 	@echo "Generated gRPC code in src/generated/"
+	@python -c "import pathlib; f = pathlib.Path('src/generated/hardware_pb2_grpc.py'); f.write_text(f.read_text().replace('import hardware_pb2 as hardware__pb2', 'from . import hardware_pb2 as hardware__pb2'))"
 
 # Build and run
 build: ## Build the application (install deps)
 	@echo "Building application..."
 	$(MAKE) install
 
-run: ## Run your service (customize the command)
-	@echo "Note: Update this command for your specific service"
-	# TODO: Replace with your actual run command
-	# python -m src.server
-	# flask run --host=0.0.0.0 --port=5000
-	# uvicorn src.server:app --host=0.0.0.0 --port=5000
+run: ## Run the hardware service
+	python -m src.server
 
 run-client: ## Run example client (customize if needed)
 	@echo "Note: Update this for your service's client"
@@ -54,12 +53,10 @@ run-client: ## Run example client (customize if needed)
 
 # Docker
 docker-build: ## Build Docker image
-	@echo "Building Docker image for your service..."
-	docker build -t your-service:latest .
+	docker build -t hardware-service:latest .
 
 docker-run: ## Run Docker container
-	@echo "Note: Update port mapping for your service"
-	docker run -p 5000:5000 your-service:latest
+	docker run -p 50051:50051 hardware-service:latest
 
 docker-compose-up: ## Start all services with docker-compose
 	docker-compose up -d
