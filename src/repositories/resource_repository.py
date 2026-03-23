@@ -10,15 +10,6 @@ This file should contain:
 - Repository pattern implementations
 """
 
-# DONE: HardwareRepository class defined and wired to HardwareService
-# DONE: get_hardware() stub in place — called by request_hardware() and return_hardware() in service layer
-# DONE: update_hardware_allocation() stub in place — called after validation passes in service layer
-
-# TODO (separate branch): Implement get_hardware()
-#   - Query database by hw_set_id
-#   - Return None if no record found (service layer converts this to NOT_FOUND)
-#   - Return a Hardware proto message or internal dataclass on success
-
 # TODO (separate branch): Implement update_hardware_allocation()
 #   - For RequestHardware:  decrement available, increment checked_out by quantity
 #   - For ReturnHardware:   increment available, decrement checked_out by quantity
@@ -28,20 +19,146 @@ This file should contain:
 #   - Required by GetHardwareResources RPC in hardware.proto
 #   - Returns a list of all Hardware records for HardwareListResponse
 
-# TODO (separate branch): Choose and wire up a real database
-#   - Replace the untyped `db` parameter with a real session type once the DB is chosen
-#   - e.g. AsyncSession (SQLAlchemy), Firestore client, Mongo collection, etc.
-#   - Add connection management / dependency injection in server.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from pymongo import MongoClient
+
+from src.config.settings import get_settings
+from src.generated import hardware_pb2
+
+
+@dataclass
+class HardwareRecord:
+    hw_set_id: str
+    name: str
+    capacity: int
+    available: int
+    checked_out: int
 
 
 class HardwareRepository:
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, db: Any | None = None):
+        settings = get_settings()
+        self.client: MongoClient | None = None
+
+        if db is not None:
+            self.db = db
+        else:
+            self.client = MongoClient(
+                settings.mongo_client_uri,
+                **settings.mongo_client_options,
+            )
+            # single database name from settings (MONGODB_DATABASE)
+            self.db = self.client.get_database(settings.mongo_database_name)
+
+    def close(self) -> None:
+        if self.client is not None:
+            self.client.close()
 
     async def get_hardware(self, hw_set_id: str):
-        # query your database — return None if not found
-        ...
+        if not hw_set_id:
+            return None
+
+        collection = self.db.get_collection(hw_set_id)
+        doc = collection.find_one({})
+
+        if doc is None:
+            return None
+
+        available = doc.get("Availability", doc.get("available", 0))
+        checked_out = doc.get("CheckedOut", doc.get("checked_out", 0))
+        capacity = doc.get("Capacity", doc.get("capacity", available + checked_out))
+        name = doc.get("Name", doc.get("name", hw_set_id))
+
+        return HardwareRecord(
+            hw_set_id=hw_set_id,
+            name=str(name),
+            capacity=int(capacity),
+            available=int(available),
+            checked_out=int(checked_out),
+        )
+
+    async def create_hardware(
+        self,
+        hw_set_id: str,
+        name: str,
+        capacity: int,
+        available: int | None = None,
+        checked_out: int = 0,
+    ) -> HardwareRecord:
+        if not hw_set_id:
+            raise ValueError("hw_set_id is required")
+
+        if not name:
+            raise ValueError("name is required")
+
+        if capacity < 0:
+            raise ValueError("capacity must be >= 0")
+
+        if checked_out < 0:
+            raise ValueError("checked_out must be >= 0")
+
+        normalized_available = capacity if available is None else available
+        if normalized_available < 0:
+            raise ValueError("available must be >= 0")
+
+        document = {
+            "Name": name,
+            "Capacity": int(capacity),
+            "Availability": int(normalized_available),
+            "CheckedOut": int(checked_out),
+        }
+
+        collection = self.db.get_collection(hw_set_id)
+        collection.insert_one(document)
+
+        return HardwareRecord(
+            hw_set_id=hw_set_id,
+            name=name,
+            capacity=int(capacity),
+            available=int(normalized_available),
+            checked_out=int(checked_out),
+        )
 
     async def update_hardware_allocation(self, hw_set_id, project_id, quantity):
-        # update available/checked_out counts, return updated Hardware proto message
-        ...
+        if not hw_set_id:
+            raise ValueError("hw_set_id is required")
+
+        if quantity <= 0:
+            raise ValueError("quantity must be > 0")
+
+        _ = project_id
+
+        current = await self.get_hardware(hw_set_id)
+        if current is None:
+            return None
+
+        new_available = current.available - int(quantity)
+        new_checked_out = current.checked_out + int(quantity)
+
+        collection = self.db.get_collection(hw_set_id)
+        collection.update_one(
+            {},
+            {
+                "$set": {
+                    "Name": current.name,
+                    "Capacity": int(current.capacity),
+                    "Availability": int(new_available),
+                    "CheckedOut": int(new_checked_out),
+                }
+            },
+            upsert=False,
+        )
+
+        hardware_cls = getattr(hardware_pb2, "Hardware")
+        return hardware_cls(
+            hw_set_id=current.hw_set_id,
+            name=current.name,
+            capacity=int(current.capacity),
+            available=int(new_available),
+            checked_out=int(new_checked_out),
+        )

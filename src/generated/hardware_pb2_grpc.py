@@ -73,11 +73,6 @@ class HardwareServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    async def get_all_hardware(self):
-        """Call repository.get_all_hardware() to fetch all Hardware records.
-        Return list of Hardware proto messages for GetHardwareResources RPC."""
-        return await self.repository.get_all_hardware()
-
 
 def add_HardwareServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
