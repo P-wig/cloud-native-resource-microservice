@@ -1,3 +1,28 @@
+# hardware_servicer.py — gRPC service implementation
+#
+# This file contains the actual business logic for the HardwareService.
+# It subclasses the auto-generated HardwareServiceServicer (from the proto stubs)
+# and overrides each RPC method with real logic backed by MongoDB.
+#
+# The three RPCs implemented here are:
+#
+#   GetHardwareResources — fetches all hardware sets from the database and
+#       returns them as a list. No input required.
+#
+#   RequestHardware — checks out a quantity of a hardware set for a project.
+#       Validates that the set exists and has enough availability, then
+#       decrements the available count and records the project as a borrower.
+#
+#   ReturnHardware — checks in a quantity of a hardware set from a project.
+#       Validates that enough units are actually checked out, then increments
+#       the available count. If the project has returned everything it borrowed,
+#       it is removed from the set's borrower list.
+#
+# Helper functions:
+#   _hw_col()       — returns the MongoDB "hardware" collection.
+#   _doc_to_proto() — converts a raw MongoDB document into a Hardware proto
+#                     message suitable for sending back to the client.
+
 from __future__ import annotations
 
 import logging

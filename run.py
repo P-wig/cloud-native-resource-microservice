@@ -1,3 +1,19 @@
+# run.py — gRPC server entrypoint
+#
+# This file is responsible for starting the hardware microservice. It:
+#   1. Opens a connection to MongoDB and seeds it with default hardware sets
+#      if the database is empty.
+#   2. Creates a gRPC server backed by a thread pool (handles concurrent requests).
+#   3. Registers HardwareServicer as the handler for all incoming RPC calls —
+#      this is the class that contains the actual business logic (query Mongo,
+#      validate input, return results).
+#   4. Enables server reflection so tools like grpcurl can discover available
+#      RPCs without needing the .proto file locally.
+#   5. Binds to the configured port (default 50051) and starts listening.
+#   6. Blocks until the process is interrupted, then closes the Mongo connection
+#      cleanly on the way out.
+#
+# To run: python run.py
 from __future__ import annotations
 
 import logging
