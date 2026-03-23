@@ -16,6 +16,7 @@ What does NOT belong here:
   - Proto message definitions           → proto/hardware.proto
 """
 
+import os
 import asyncio
 from concurrent import futures
 
@@ -91,12 +92,12 @@ async def _smoke_test_repository(repository: HardwareRepository) -> None:
 
 
 def serve() -> None:
-    settings = get_settings()
     repository = HardwareRepository()
-
+    settings = get_settings()
     try:
-        asyncio.run(_smoke_test_repository(repository))
-
+        if os.getenv("RUN_STARTUP_SMOKE_TEST", "false").lower() == "true":
+            asyncio.run(_smoke_test_repository(repository))
+        # start gRPC server normally
         hardware_service = HardwareService(repository)
         servicer = HardwareServicer(hardware_service)
 
