@@ -1,62 +1,22 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.venv/
+dist/
+build/
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# Generated protobuf stubs (rebuilt via scripts/compile_protos.sh)
+gen/hardware/v1/hardware_pb2.py
+gen/hardware/v1/hardware_pb2.pyi
+gen/hardware/v1/hardware_pb2_grpc.py
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# Environment
+.env
 
-# Logs
-logs/
-*.log
+# IDE
+.vscode/
+.idea/
 
-# Temporary files
-
-# Temporary files
-tmp/
-temp/
-
-# Local configuration overrides
-config/local.py
-.env.local
-.env.*.local
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Backup files
-*.bak
-*.backup
+# OS
+.DS_Store

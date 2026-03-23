@@ -1,248 +1,105 @@
-# Hardware Resource Microservice
+# cloud-native-microservice
 
-A gRPC microservice for managing hardware allocation in the HaaS (Hardware as a Service) platform, built with Python.
-
-## Features
-
-- **gRPC API**: Type-safe API defined in `proto/hardware.proto`
-- **Layered Architecture**: Servicer → Service → Repository separation of concerns
-- **Structured domain errors**: `INVALID_ARGUMENT`, `NOT_FOUND`, and `FAILED_PRECONDITION` mapped cleanly from service-layer exceptions
-- **Async/await**: All RPC handlers and repository calls are fully async
-- **Observability**: Prometheus metrics, structured logging (structlog), and OpenTelemetry tracing wired in via dependencies
+gRPC + MongoDB hardware management microservice for the Cloud Native App Team Project.
 
 ## Architecture
 
+| Layer            | Technology              |
+| ---------------- | ----------------------- |
+| Transport        | gRPC (protobuf)         |
+| Language         | Python 3.12             |
+| Database         | MongoDB 7               |
+| Containerisation | Docker / Docker Compose |
+
+### Why gRPC instead of Flask?
+
+The shared contract between teams is a `.proto` file that defines a **Protocol Buffers + gRPC** service. Flask is an HTTP/REST framework and cannot natively serve protobuf-encoded gRPC calls. Instead, this service uses the `grpcio` library which:
+
+- Speaks the gRPC wire protocol directly (HTTP/2 + protobuf).
+- Auto-generates Python stubs from the `.proto` file so request/response types are strongly typed.
+- Enables service reflection so clients can discover available RPCs.
+
+## Project Structure
+
 ```
-├── proto/                  # Protocol Buffer definitions
-├── src/                   # Source code
-│   ├── config/           # Configuration management
-│   ├── services/         # gRPC service implementations
-│   ├── repositories/     # Data access layer
-│   ├── utils/           # Utility functions
-│   ├── generated/       # Auto-generated gRPC code
-│   ├── server.py        # Main server application
-│   └── client.py        # Sample client implementation
-├── monitoring/           # Observability configuration
-├── deployments/         # Deployment manifests
-└── scripts/             # Development scripts
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+├── run.py                          # gRPC server entrypoint
+├── proto/
+│   └── hardware/v1/hardware.proto  # shared proto contract
+├── gen/
+│   └── hardware/v1/                # compiled Python stubs (auto-generated)
+├── app/
+│   ├── config.py                   # env-based configuration
+│   ├── db.py                       # MongoDB connection + seeding
+│   ├── mongo_utils.py              # serialisation helpers
+│   └── servicers/
+│       └── hardware_servicer.py    # gRPC service implementation
+└── scripts/
+    └── compile_protos.sh           # proto → Python compilation
 ```
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.9+
-- Docker (optional)
-- Make (optional, for convenience)
-
-### Development Setup
-
-1. **Clone and setup**:
-   ```bash
-   git clone <repository-url>
-   cd cloud-native-resource-microservice
-   make dev-setup  # or follow manual steps below
-   ```
-
-2. **Manual setup**:
-   ```bash
-   # Install dependencies
-   pip install -r requirements-dev.txt
-   
-   # Generate gRPC code
-   make proto
-   
-   # Copy environment file
-   cp .env.example .env
-   ```
-
-3. **Run the server**:
-   ```bash
-   make run
-   # or
-   python -m src.server
-   ```
-
-### Using Docker
-
-1. **Build and run**:
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **View logs**:
-   ```bash
-   docker-compose logs -f resource-service
-   ```
-
-3. **Access monitoring** (after running `make monitoring-up`):
-   - Prometheus: http://localhost:9090
-   - Grafana: http://localhost:3000 (admin/admin)
-   - Jaeger: http://localhost:16686
-
-## API Usage
-
-### gRPC Service
-
-The service provides the following operations:
-
-- `CreateResource`: Create a new resource
-- `GetResource`: Retrieve a resource by ID
-- `UpdateResource`: Update an existing resource
-- `DeleteResource`: Delete a resource
-- `ListResources`: List resources with pagination
-- `WatchResources`: Stream resource updates in real-time
-
-### Example Client Usage
-
-```python
-import asyncio
-from src.client import ResourceServiceClient
-from src.generated.resource_service_pb2 import ResourceType
-
-async def example():
-    async with ResourceServiceClient("localhost", 50051) as client:
-        # Create a resource
-        resource = await client.create_resource(
-            name="my-server",
-            description="A compute instance",
-            resource_type=ResourceType.RESOURCE_TYPE_COMPUTE,
-            metadata={"region": "us-east-1"}
-        )
-        print(f"Created resource: {resource.id}")
-        
-        # Get the resource
-        retrieved = await client.get_resource(resource.id)
-        print(f"Retrieved: {retrieved.name}")
-        
-        # List all resources
-        resources, next_token, total = await client.list_resources()
-        print(f"Total resources: {total}")
-
-if __name__ == "__main__":
-    asyncio.run(example())
-```
-
-### Using grpcurl for testing
+### With Docker Compose (recommended)
 
 ```bash
-# List available services
+docker compose up --build
+```
+
+This starts MongoDB and the gRPC service on port **50051**.
+
+### Local Development
+
+```bash
+# Create venv and install dependencies
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Compile proto stubs
+bash scripts/compile_protos.sh
+
+# Start MongoDB (if not already running)
+docker run -d -p 27017:27017 mongo:7
+
+# Run the server
+python run.py
+```
+
+## gRPC API
+
+Defined in `proto/hardware/v1/hardware.proto`:
+
+| RPC                    | Request           | Response               | Description                   |
+| ---------------------- | ----------------- | ---------------------- | ----------------------------- |
+| `GetHardwareResources` | `Empty`           | `HardwareListResponse` | List all hardware sets        |
+| `RequestHardware`      | `HardwareRequest` | `Hardware`             | Check out units for a project |
+| `ReturnHardware`       | `HardwareRequest` | `Hardware`             | Return units from a project   |
+
+### Testing with grpcurl
+
+```bash
+# List services (requires reflection)
 grpcurl -plaintext localhost:50051 list
 
-# Create a resource
-grpcurl -plaintext -d '{
-  "name": "test-resource",
-  "description": "A test resource",
-  "type": "RESOURCE_TYPE_COMPUTE",
-  "created_by": "user123"
-}' localhost:50051 resource.v1.ResourceService/CreateResource
+# Get all hardware
+grpcurl -plaintext localhost:50051 haas.hardware.v1.HardwareService/GetHardwareResources
 
-# Get a resource
-grpcurl -plaintext -d '{"id": "<resource-id>"}' \
-  localhost:50051 resource.v1.ResourceService/GetResource
+# Check out 10 units of HWSet1 for project "proj-abc"
+grpcurl -plaintext -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":10}' \
+  localhost:50051 haas.hardware.v1.HardwareService/RequestHardware
+
+# Return 5 units
+grpcurl -plaintext -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":5}' \
+  localhost:50051 haas.hardware.v1.HardwareService/ReturnHardware
 ```
 
-## Development
+## Environment Variables
 
-### Code Quality
-
-```bash
-# Format code
-make format
-
-# Lint code
-make lint
-
-# Run all checks
-make check
-```
-
-### Protocol Buffers
-
-```bash
-# Regenerate gRPC code after modifying .proto files
-make proto
-```
-
-## Configuration
-
-The service is configured via environment variables. See [.env.example](.env.example) for all options.
-
-Key configurations:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERVER_HOST` | `0.0.0.0` | Server bind address |
-| `SERVER_PORT` | `50051` | gRPC server port |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `ENABLE_METRICS` | `true` | Enable Prometheus metrics |
-| `ENABLE_TRACING` | `true` | Enable distributed tracing |
-
-## Monitoring
-
-The service includes comprehensive observability:
-
-### Metrics
-- **Prometheus metrics** on `:8080/metrics`
-- Request/response counters
-- Latency histograms
-- Error rates
-
-### Logging
-- **Structured logging** with configurable format (JSON/text)
-- Request tracing with correlation IDs
-- Configurable log levels
-
-### Tracing
-- **OpenTelemetry** integration
-- Jaeger-compatible traces
-- Request flow visualization
-
-### Health Checks
-- **gRPC health check** service
-- **Docker health checks**
-- **Kubernetes readiness/liveness probes**
-
-## Deployment
-
-### Docker
-```bash
-# Build image
-make docker-build
-
-# Run container
-make docker-run
-```
-
-### Docker Compose
-```bash
-# Start all services
-make docker-compose-up
-
-# Start monitoring stack
-make monitoring-up
-```
-
-### Kubernetes
-```bash
-# Apply manifests (when available)
-make k8s-apply
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Run quality checks: `make check`
-5. Submit a pull request
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-- **Documentation**: See the `docs/` directory
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
+| Variable    | Default                     | Description               |
+| ----------- | --------------------------- | ------------------------- |
+| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
+| `MONGO_DB`  | `hardware_service`          | Database name             |
+| `GRPC_PORT` | `50051`                     | Port for the gRPC server  |
