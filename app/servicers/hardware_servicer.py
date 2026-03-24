@@ -58,7 +58,6 @@ def _doc_to_proto(doc: dict) -> hardware_pb2.Hardware:
         updated_at=ts,
     )
 
-
 class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
     """Implements the HardwareService gRPC interface."""
 
