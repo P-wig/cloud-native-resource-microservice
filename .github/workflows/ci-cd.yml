@@ -1,25 +1,70 @@
 name: CI/CD Pipeline
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
-      - feature/cicd-pipeline
+  workflow_dispatch:
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install ruff pytest
+
+      - name: Compile proto files
+        run: bash scripts/compile_protos.sh
+
+      - name: Run lint
+        run: ruff check .
+
+      - name: Run tests (skip if none exist yet)
+        run: |
+          if find . -path "*/tests/*.py" -o -name "test_*.py" | grep -q .; then
+            pytest
+          else
+            echo "No tests found yet, skipping pytest."
+          fi
+
+      - name: Syntax check
+        run: python -m compileall .
+
+      - name: Build Docker image (no push)
+        run: docker build -t local-ci-image:${{ github.sha }} .
+
+  docker:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # LOGIN 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -31,5 +76,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: txwarbler/team6:${{ github.sha }}
+          tags: |
+            txwarbler/team6:latest
+            txwarbler/team6:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
