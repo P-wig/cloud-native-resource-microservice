@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Compile .proto files into Python gRPC stubs.
 # Run from the repo root: bash scripts/compile_protos.sh
+# Make sure you switch from CRLF to LF line endings if you're on Windows, 
+# otherwise the generated files will have syntax errors.
 
 set -euo pipefail
 
