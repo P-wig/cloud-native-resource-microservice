@@ -142,7 +142,10 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
             return hardware_pb2.Hardware()
 
         now = datetime.now(timezone.utc)
-        new_available = hw["available"] + quantity
+        # We could calculate the new available count here, but since we're doing an atomic update
+        # in the database, we can just specify the increments and let MongoDB handle it. The important
+        # part is to ensure we don't allow returning more than what's checked out, which we validate above.
+        # new_available = hw["available"] + quantity
         new_checked_out = checked_out - quantity
 
         update_ops: dict = {
