@@ -119,3 +119,16 @@ grpcurl -plaintext -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":
 | `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MONGO_DB`  | `hardware_service`          | Database name             |
 | `GRPC_PORT` | `50051`                     | Port for the gRPC server  |
+
+## Logging
+
+nginx logs all requests passing through the proxy to `nginx/logs/` (generated at runtime, not committed).
+
+To stream logs live:
+```bash
+# Git Bash / WSL
+tail -f nginx/logs/grpc_access.log
+
+# PowerShell
+Get-Content nginx/logs/grpc_access.log -Wait
+```
