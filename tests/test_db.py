@@ -6,7 +6,7 @@ from app import db as db_module
 def restore_client_state(): # isolate module level client between tests
     orig_client = db_module._client # save original global client
     yield # run test body
-    db_module.client = orig_client # restore original global client after test
+    db_module._client = orig_client # restore original global client after test
     
 def test_seed_hw_interst_initial_hw_empty(monkeypatch):
     # mock db client and collection
