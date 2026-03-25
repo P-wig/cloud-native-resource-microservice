@@ -1,8 +1,8 @@
 """
 TEST FILE: tests/test_hardware_servicer.py
 GOAL:
-Test all business logic inside of HardwareServicer, 
-without using a real database. 
+Test all business logic inside of HardwareServicer,
+without using a real database.
 
 STRATEGY:
 - Mock MongoDB collection using MagicMock
@@ -120,7 +120,7 @@ def test_get_hardware_resources_returns_all(servicer, fake_context, mock_collect
     mock_collection.find.assert_called_once() # ensure find was called once
     cursor.limit.assert_called_once_with(200)
 
-# request hardware success case 
+# request hardware success case # ReturnHardware 
 # valid request --> update db --> return updated hardware
 def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_context, mock_collection):
     request = hardware_pb2.HardwareRequest(
@@ -194,9 +194,132 @@ def test_request_hardware_insufficient_avail_sets_failed_precondition(servicer, 
     # verify no database update attempted
     mock_collection.update_one.assert_not_called() # assert no update attempted on failure
 
-# ReturnHardware 
-# valid return, to many returned, and full return
-# removes project 
+def test_request_hardware_not_found_sets_not_found(servicer, fake_context, mock_collection):  # test hardware not found branch
+    request = hardware_pb2.HardwareRequest(hw_set_id="UNKNOWN", project_id="proj-1", quantity=10)  # build request with unknown set id
+    mock_collection.find_one.return_value = None  # make lookup return no document
 
-  
-    
+    response = servicer.RequestHardware(request, fake_context)  # call RequestHardware
+
+    assert fake_context.code == grpc.StatusCode.NOT_FOUND  # assert expected grpc code
+    assert "UNKNOWN" in fake_context.details  # assert not-found message includes requested id
+    assert response == hardware_pb2.Hardware()  # assert empty hardware returned on failure
+    mock_collection.update_one.assert_not_called()  # assert no update executed
+
+
+def test_request_hardware_invalid_argument_empty_hw_set_id(servicer, fake_context, mock_collection):  # test invalid request with empty hw_set_id
+    request = hardware_pb2.HardwareRequest(hw_set_id="", project_id="proj-1", quantity=10)  # build invalid request
+
+    response = servicer.RequestHardware(request, fake_context)  # call RequestHardware
+
+    assert fake_context.code == grpc.StatusCode.INVALID_ARGUMENT  # assert invalid argument code
+    assert "required" in fake_context.details  # assert validation details message
+    assert response == hardware_pb2.Hardware()  # assert empty response on validation failure
+    mock_collection.find_one.assert_not_called()  # assert DB lookup skipped
+    mock_collection.update_one.assert_not_called()  # assert DB update skipped
+
+
+def test_request_hardware_invalid_argument_quantity_zero(servicer, fake_context, mock_collection):  # test invalid request with zero quantity
+    request = hardware_pb2.HardwareRequest(hw_set_id="HWSet1", project_id="proj-1", quantity=0)  # build invalid request
+
+    response = servicer.RequestHardware(request, fake_context)  # call RequestHardware
+
+    assert fake_context.code == grpc.StatusCode.INVALID_ARGUMENT  # assert invalid argument code
+    assert "required" in fake_context.details  # assert validation details message
+    assert response == hardware_pb2.Hardware()  # assert empty response on validation failure
+    mock_collection.find_one.assert_not_called()  # assert DB lookup skipped
+    mock_collection.update_one.assert_not_called()  # assert DB update skipped
+
+
+def test_return_hardware_success_partial_return(servicer, fake_context, mock_collection):  # test successful partial return branch
+    request = hardware_pb2.HardwareRequest(hw_set_id="HWSet1", project_id="proj-1", quantity=5)  # build valid return request
+
+    before = {  # fake pre-return DB document
+        "_id": "mongo-id-1",  # fake id field
+        "hardwareName": "HWSet1",  # matching hardware set
+        "capacity": 200,  # capacity value
+        "available": 140,  # available before return
+        "checkedOut": 60,  # checkedOut before return
+        "assignedProjects": ["proj-1"],  # assigned project list
+        "updatedAt": datetime.now(timezone.utc),  # timestamp
+    }  # end pre-return doc
+    after = {  # fake post-return DB document
+        "_id": "mongo-id-1",  # same id after update
+        "hardwareName": "HWSet1",  # same set name
+        "capacity": 200,  # same capacity
+        "available": 145,  # available increased by 5
+        "checkedOut": 55,  # checkedOut decreased by 5
+        "assignedProjects": ["proj-1"],  # project still present after partial return
+        "updatedAt": datetime.now(timezone.utc),  # timestamp
+    }  # end post-return doc
+
+    mock_collection.find_one.side_effect = [before, after]  # first lookup before update, second after update
+
+    response = servicer.ReturnHardware(request, fake_context)  # call ReturnHardware
+
+    assert fake_context.code is None  # assert success path set no error code
+    assert response.available == 145  # assert updated available value
+    assert response.checked_out == 55  # assert updated checked_out value
+
+    mock_collection.update_one.assert_called_once()  # assert update executed once
+    update_filter, update_payload = mock_collection.update_one.call_args.args  # capture update call args
+    assert update_filter == {"_id": "mongo-id-1"}  # assert update targeted correct doc
+    assert update_payload["$inc"]["available"] == 5  # assert available increment
+    assert update_payload["$inc"]["checkedOut"] == -5  # assert checkedOut decrement
+    assert "$pull" not in update_payload  # assert no project removal on partial return
+
+
+def test_return_hardware_over_return_sets_failed_precondition(servicer, fake_context, mock_collection):  # test over-return failure branch
+    request = hardware_pb2.HardwareRequest(hw_set_id="HWSet1", project_id="proj-1", quantity=15)  # request returns too many units
+    mock_collection.find_one.return_value = {  # mock current state with only 10 checked out
+        "_id": "mongo-id-1",  # fake id field
+        "hardwareName": "HWSet1",  # matching set name
+        "capacity": 200,  # capacity field
+        "available": 190,  # currently available
+        "checkedOut": 10,  # only 10 checked out
+        "assignedProjects": ["proj-1"],  # project assigned
+        "updatedAt": datetime.now(timezone.utc),  # timestamp
+    }  # end mocked state
+
+    response = servicer.ReturnHardware(request, fake_context)  # call ReturnHardware
+
+    assert fake_context.code == grpc.StatusCode.FAILED_PRECONDITION  # assert expected grpc code
+    assert "only 10 checked out" in fake_context.details  # assert expected details content
+    assert response == hardware_pb2.Hardware()  # assert empty response on failure
+    mock_collection.update_one.assert_not_called()  # assert no update attempted
+
+
+def test_return_hardware_full_return_includes_pull_project(servicer, fake_context, mock_collection):  # test full return removes project branch
+    request = hardware_pb2.HardwareRequest(hw_set_id="HWSet1", project_id="proj-1", quantity=10)  # request returns all checked-out units
+
+    before = {  # fake pre-return state
+        "_id": "mongo-id-1",  # fake id field
+        "hardwareName": "HWSet1",  # matching set name
+        "capacity": 200,  # capacity field
+        "available": 140,  # available before return
+        "checkedOut": 10,  # checkedOut before return
+        "assignedProjects": ["proj-1"],  # project currently assigned
+        "updatedAt": datetime.now(timezone.utc),  # timestamp
+    }  # end pre-return state
+    after = {  # fake post-return state
+        "_id": "mongo-id-1",  # same id after update
+        "hardwareName": "HWSet1",  # same set name
+        "capacity": 200,  # same capacity
+        "available": 150,  # available increased by 10
+        "checkedOut": 0,  # checkedOut reduced to zero
+        "assignedProjects": [],  # project removed
+        "updatedAt": datetime.now(timezone.utc),  # timestamp
+    }  # end post-return state
+
+    mock_collection.find_one.side_effect = [before, after]  # two-stage lookup around update
+
+    response = servicer.ReturnHardware(request, fake_context)  # call ReturnHardware
+
+    assert fake_context.code is None  # assert success path has no grpc error
+    assert response.available == 150  # assert final available value
+    assert response.checked_out == 0  # assert final checked_out value
+
+    mock_collection.update_one.assert_called_once()  # assert update executed once
+    _, update_payload = mock_collection.update_one.call_args.args  # capture update payload
+    assert update_payload["$inc"]["available"] == 10  # assert available increment
+    assert update_payload["$inc"]["checkedOut"] == -10  # assert checkedOut decrement
+    assert update_payload["$pull"]["assignedProjects"] == "proj-1"  # assert project pull applied on full return
