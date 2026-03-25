@@ -66,7 +66,6 @@ def mock_collection(mocker):
     - No real database is used
     """
     mocked_col= MagicMock() # fake mongodb collection
-    
     # patch replaces -hw_col() in hardware_servicer
     mocker.patch(
         "app.servicers.hardware_servicer._hw_col",
@@ -74,30 +73,6 @@ def mock_collection(mocker):
         )
     return mocked_col # provides a mock to test
  
-# fake db data
-def test_get_hardware_resources(servicer, fake_context, mock_collection):
-    now = datetime.now(timezone.utc)
-    docs = [
-        {
-            "_id": "id-1",
-            "hardwareName": "HWSet1",
-            "capacity": 200,
-            "available": 150, 
-            "checkedOut": 50,
-        "updatedAt": now
-        }
-    ]
-    # simulate mondgodb cursor behavior
-    cursor = MagicMock()
-    cursor.limit.return_value = docs # return our fake data
-    # connect mock to collection
-    mock_collection.find.return_value = cursor
-    
-    # call function
-    response = servicer.GetHardwareResources(None, fake_context)
-    # verify result
-    assert len(response.hardware_sets) == 1
-    
 def test_get_hardware_resources_returns_all(servicer, fake_context, mock_collection):
     now = datetime.now(timezone.utc)
     docs = [
@@ -147,7 +122,47 @@ def test_get_hardware_resources_returns_all(servicer, fake_context, mock_collect
   
 # request hardware success case 
 # valid request --> update db --> return updated hardware
-
+def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_context, mock_collection):
+    request = hardware_pb2.HardwareRequest(
+        hw_set_id= "HWSet1",
+        project_id = "Project1",
+        quantity = 10
+    )
+    
+    before = {
+            "_id": "mongo-id-1",
+            "hardwareName": "HWSet1",
+            "capacity": 200,
+            "available": 150, 
+            "checkedOut": 50,
+        "updatedAt": datetime.now(timezone.utc)
+        },
+    after = {
+            "_id": "id-2",
+            "hardwareName": "HWSet1",
+            "capacity": 200,
+            "available": 140, 
+            "checkedOut": 60,
+        "updatedAt": datetime.now(timezone.utc)
+        }
+    # mock sanity check
+    mock_collection.find_one.side_effect = [before, after] # ensure find was called once
+    response = servicer.RequestHardware(request, fake_context)
+    # verify response type
+    assert fake_context.code is None # no error code set
+    assert fake_context.details is None # no error message set
+    assert response.name == "HWSet1"
+    assert response.available == 140
+    assert response.checked_out == 60
+    # verify database calls
+    mock_collection.update_one.assert_called_once()
+    update_filter, update_payload = mock_collection.update_one.call_args.args
+    
+    assert update_filter == {"_id": "mongo-id-1"} # correct document targeted
+    assert update_payload["inc"]["available"] == -10 # available decremented by 10
+    assert update_payload["inc"]["checkedOut"] == 10 # checkedOut incremented by
+    assert update_payload["addToSet"]["assignedProjects"] == "Project1" # project added to assignedProjects
+    assert "updatedAt" in update_payload["set"] # updatedAt field is set
 
 # request hardware not found error case
 # exceeds availability --> failed preconditon --> not found
