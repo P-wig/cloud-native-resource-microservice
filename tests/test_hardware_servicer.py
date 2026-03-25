@@ -17,7 +17,7 @@ from unittest.mock import MagicMock # magicmock for mocking, Any flexibile match
 import pytest
 from app.servicers.hardware_servicer import HardwareServicer # class under test
 from gen.hardware.v1 import hardware_pb2 # import protobuf message
-
+import grpc  # import grpc to assert status codes
 # Fake gRPC Context for testing error handling
 class FakeContext:
     """
@@ -119,7 +119,7 @@ def test_get_hardware_resources_returns_all(servicer, fake_context, mock_collect
     # verify database call / sanity check 
     mock_collection.find.assert_called_once() # ensure find was called once
     cursor.limit.assert_called_once_with(200)
-  
+
 # request hardware success case 
 # valid request --> update db --> return updated hardware
 def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_context, mock_collection):
@@ -169,7 +169,30 @@ def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_cont
 # request hardware not found error case
 # exceeds availability --> failed preconditon --> not found
 # --> NOT_FOUND status code invalid input --> INVALID_ARGUMENT status code
-
+def test_request_hardware_insufficient_avail_sets_failed_precondition(servicer, fake_context, mock_collection):
+    request = hardware_pb2.HardwareRequest(
+        hw_set_id= "HWSet1",
+        project_id = "Project1",
+        quantity = 10
+    )
+    
+    mock_collection.find_one.return_value    = {
+            "_id": "mongo-id-1",
+            "hardwareName": "HWSet1",
+            "capacity": 200,
+            "available": 5, 
+            "checkedOut": 195,
+            "updatedAt": datetime.now(timezone.utc)
+        }
+    response = servicer.RequestHardware(request, fake_context)
+    
+    # verify error handling
+    assert fake_context.code == grpc.StatusCode.FAILED_PRECONDITION #assert expected grpc code
+    assert "Insufficient availability. Only 5 units available" in fake_context.details # assert expected grpc dtails text
+    assert response == hardware_pb2.Hardware() # assert empty response on error
+   
+    # verify no database update attempted
+    mock_collection.update_one.assert_not_called() # assert no update attempted on failure
 
 # ReturnHardware 
 # valid return, to many returned, and full return
