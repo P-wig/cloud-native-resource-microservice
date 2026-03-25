@@ -135,15 +135,15 @@ def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_cont
             "capacity": 200,
             "available": 150, 
             "checkedOut": 50,
-        "updatedAt": datetime.now(timezone.utc)
-        },
+            "assignedProjects": []
+        }
     after = {
-            "_id": "id-2",
+            "_id": "mongo-id-1",
             "hardwareName": "HWSet1",
             "capacity": 200,
             "available": 140, 
             "checkedOut": 60,
-        "updatedAt": datetime.now(timezone.utc)
+            "assignedProjects": ["Project1"]
         }
     # mock sanity check
     mock_collection.find_one.side_effect = [before, after] # ensure find was called once
@@ -151,6 +151,7 @@ def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_cont
     # verify response type
     assert fake_context.code is None # no error code set
     assert fake_context.details is None # no error message set
+    # verify response data
     assert response.name == "HWSet1"
     assert response.available == 140
     assert response.checked_out == 60
@@ -159,10 +160,11 @@ def test_request_hardware_success_updates_returns_updated_hw(servicer, fake_cont
     update_filter, update_payload = mock_collection.update_one.call_args.args
     
     assert update_filter == {"_id": "mongo-id-1"} # correct document targeted
-    assert update_payload["inc"]["available"] == -10 # available decremented by 10
-    assert update_payload["inc"]["checkedOut"] == 10 # checkedOut incremented by
-    assert update_payload["addToSet"]["assignedProjects"] == "Project1" # project added to assignedProjects
-    assert "updatedAt" in update_payload["set"] # updatedAt field is set
+    assert update_payload["$inc"]["available"] == -10 # available decremented by 10
+    assert update_payload["$inc"]["checkedOut"] == 10 # checkedOut incremented by
+    
+    assert update_payload["$addToSet"]["assignedProjects"] == "Project1" # project added to assignedProjects
+    assert "updatedAt" in update_payload["$set"] # updatedAt field is set
 
 # request hardware not found error case
 # exceeds availability --> failed preconditon --> not found
