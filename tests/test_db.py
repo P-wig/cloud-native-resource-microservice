@@ -40,7 +40,7 @@ def test_seed_hw_not_insert_when_not_empty(monkeypatch):
 
 def test_get_db_raises_runtime_error_before_init():
     db_module._client = None # ensure client is not initialized
-    # need to manually escape parenthese in regex pattern for mathching the error message
+    # need to manually escape parentheses in regex pattern for matching the error message
     with pytest.raises(RuntimeError, match="MongoDB not initialised – call init_mongo\\(\\) first"):
         db_module.get_db() # should raise RuntimeError if client is not initialized
     
