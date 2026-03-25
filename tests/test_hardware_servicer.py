@@ -278,7 +278,7 @@ def test_return_hardware_over_return_sets_failed_precondition(servicer, fake_con
         "checkedOut": 10,  # only 10 checked out
         "assignedProjects": ["proj-1"],  # project assigned
         "updatedAt": datetime.now(timezone.utc),  # timestamp
-    }  # end mocked state
+    }  # end mocked
 
     response = servicer.ReturnHardware(request, fake_context)  # call ReturnHardware
 
@@ -308,7 +308,7 @@ def test_return_hardware_full_return_includes_pull_project(servicer, fake_contex
         "checkedOut": 0,  # checkedOut reduced to zero
         "assignedProjects": [],  # project removed
         "updatedAt": datetime.now(timezone.utc),  # timestamp
-    }  # end post-return state
+    }  # end post-return
 
     mock_collection.find_one.side_effect = [before, after]  # two-stage lookup around update
 
