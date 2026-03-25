@@ -13,8 +13,7 @@ STRATEGY:
     - gRPC error codes
 """
 from datetime import datetime, timezone # simulate timestamps
-from unittest.mock import MagicMock, ANY # magicmock for mocking, Any flexibile matching
-import grpc # to check gRPC status codes
+from unittest.mock import MagicMock # magicmock for mocking, Any flexibile matching
 import pytest
 from app.servicers.hardware_servicer import HardwareServicer # class under test
 from gen.hardware.v1 import hardware_pb2 # import protobuf message
@@ -144,7 +143,7 @@ def test_get_hardware_resources_returns_all(servicer, fake_context, mock_collect
     assert response.hardware_sets[1].checked_out == 20
     # verify database call / sanity check 
     mock_collection.find.assert_called_once() # ensure find was called once
-    cursor.limit.assert_called_once()
+    cursor.limit.assert_called_once_with(200)
   
 # request hardware success case 
 # valid request --> update db --> return updated hardware
