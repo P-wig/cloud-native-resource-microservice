@@ -20,3 +20,6 @@ gen/hardware/v1/hardware_pb2_grpc.py
 
 # OS
 .DS_Store
+
+# nginx logs (generated at runtime)
+nginx/logs/

@@ -7,6 +7,7 @@ gRPC + MongoDB hardware management microservice for the Cloud Native App Team Pr
 | Layer            | Technology              |
 | ---------------- | ----------------------- |
 | Transport        | gRPC (protobuf)         |
+| Reverse Proxy    | nginx 1.27              |
 | Language         | Python 3.12             |
 | Database         | MongoDB 7               |
 | Containerisation | Docker / Docker Compose |
@@ -19,6 +20,17 @@ The shared contract between teams is a `.proto` file that defines a **Protocol B
 - Auto-generates Python stubs from the `.proto` file so request/response types are strongly typed.
 - Enables service reflection so clients can discover available RPCs.
 
+### Request Flow
+
+```
+Client
+  └── Request
+    └── gRPC
+      └── Reverse Proxy
+        └── gRPC Server
+          └── MongoDB
+```
+
 ## Project Structure
 
 ```
@@ -26,6 +38,9 @@ The shared contract between teams is a `.proto` file that defines a **Protocol B
 ├── Dockerfile
 ├── pyproject.toml
 ├── run.py                          # gRPC server entrypoint
+├── nginx/
+│ ├── nginx.conf # reverse proxy + rate limiting config
+│ └── logs/ # access and error logs (generated at runtime)
 ├── proto/
 │   └── hardware/v1/hardware.proto  # shared proto contract
 ├── gen/
@@ -72,11 +87,12 @@ python run.py
 
 Defined in `proto/hardware/v1/hardware.proto`:
 
-| RPC                    | Request           | Response               | Description                   |
-| ---------------------- | ----------------- | ---------------------- | ----------------------------- |
-| `GetHardwareResources` | `Empty`           | `HardwareListResponse` | List all hardware sets        |
-| `RequestHardware`      | `HardwareRequest` | `Hardware`             | Check out units for a project |
-| `ReturnHardware`       | `HardwareRequest` | `Hardware`             | Return units from a project   |
+| RPC                    | Request              | Response               | Description                     |
+| ---------------------- | -------------------- | ---------------------- | ------------------------------- |
+| `GetHardwareResources` | `Empty`              | `HardwareListResponse` | List all hardware sets          |
+| `GetHardware`          | `GetHardwareRequest` | `Hardware`             | Get a single hardware set by ID |
+| `RequestHardware`      | `HardwareRequest`    | `Hardware`             | Check out units for a project   |
+| `ReturnHardware`       | `HardwareRequest`    | `Hardware`             | Return units from a project     |
 
 ### Testing with grpcurl
 
@@ -103,3 +119,16 @@ grpcurl -plaintext -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":
 | `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MONGO_DB`  | `hardware_service`          | Database name             |
 | `GRPC_PORT` | `50051`                     | Port for the gRPC server  |
+
+## Logging
+
+nginx logs all requests passing through the proxy to `nginx/logs/` (generated at runtime, not committed).
+
+To stream logs live:
+```bash
+# Git Bash / WSL
+tail -f nginx/logs/grpc_access.log
+
+# PowerShell
+Get-Content nginx/logs/grpc_access.log -Wait
+```

@@ -9,4 +9,4 @@ class Config:
     MONGO_DB = os.getenv("MONGO_DB", "hardware_service")
 
     # gRPC
-    GRPC_PORT = int(os.getenv("GRPC_PORT", "50051"))
+    GRPC_PORT = int(os.getenv("GRPC_PORT", "50052"))
