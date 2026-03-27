@@ -112,6 +112,58 @@ grpcurl -plaintext -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":
   localhost:50051 haas.hardware.v1.HardwareService/ReturnHardware
 ```
 
+## Deploy Application
+
+This service is designed to be deployed as an independent container (for example: Azure Container Apps).
+
+At runtime, clients can use **server reflection** to discover the service and available RPCs without needing the `.proto` file locally.
+
+### Verify Deployment (Reflection)
+
+Use `grpcurl` against the deployed endpoint to list the service methods:
+
+```bash
+grpcurl -v team6.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443 \
+  list haas.hardware.v1.HardwareService
+
+# Expected output:
+# haas.hardware.v1.HardwareService.GetHardware
+# haas.hardware.v1.HardwareService.GetHardwareResources
+# haas.hardware.v1.HardwareService.RequestHardware
+# haas.hardware.v1.HardwareService.ReturnHardware
+```
+
+### Simple Deployed Examples
+
+```bash
+# Get all hardware resources
+grpcurl -v -d '{}' team6.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443 \
+  haas.hardware.v1.HardwareService/GetHardwareResources
+
+# Request (check out) 10 units of HWSet1 for project "proj-abc"
+grpcurl -v -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":10}' \
+  team6.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443 \
+  haas.hardware.v1.HardwareService/RequestHardware
+
+# Return 5 units
+grpcurl -v -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":5}' \
+  team6.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443 \
+  haas.hardware.v1.HardwareService/ReturnHardware
+```
+
+## Testing
+
+### Unit Tests
+
+Activate the virtual environment and run pytest:
+
+```bash
+source .venv/bin/activate
+python -m pytest -v
+```
+
+
+
 ## Environment Variables
 
 | Variable    | Default                     | Description               |
