@@ -151,6 +151,105 @@ grpcurl -v -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":5}' \
   haas.hardware.v1.HardwareService/ReturnHardware
 ```
 
+## ACA Architecture and Proxying
+
+Production deployment uses two Azure Container Apps in the same ACA environment:
+
+- `nginx-proxy` (external ingress): public entrypoint for all client traffic
+- `team6` gRPC service (internal ingress): private backend only reachable from apps in the same ACA environment
+
+### Request Path
+
+```text
+Internet Client (grpcurl)
+  -> nginx-proxy.<env>.<region>.azurecontainerapps.io:443
+  -> nginx-proxy container (listen 8080, HTTP/2)
+  -> grpcs://team6.internal.<env>.<region>.azurecontainerapps.io:443
+  -> ACA internal ingress (Envoy)
+  -> team6 container gRPC listener
+```
+
+### Proxy Behavior
+
+- NGINX terminates client-side TLS at ACA external ingress and forwards to the internal service using `grpcs`.
+- Upstream SNI and Host must match the internal FQDN to avoid TLS/routing issues.
+- Rate limiting is enforced in NGINX (`limit_req`) before proxying.
+- Backend service reflection can still be used through the proxy (useful for contract validation).
+
+### Testing Proxy
+To test that the nginx-proxy is in fact rate-limiting, there is a shell script `test_rate_limit.sh`. It relies on the utility `grpcurl` being available. Below is the command to run and expected output:
+
+```bash
+./tests/test_rate_limiting.sh 
+Target:   nginx-proxy.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443
+Method:   haas.hardware.v1.HardwareService/RequestHardware
+Requests: 20
+Running burst test...
+
+Summary
+  Success responses      : 0
+  Rate-limited responses : 20
+  Other failures         : 0
+
+PASS: Rate limiting detected.
+```
+## Debugging Notes (ACA + gRPC + NGINX)
+
+Use this checklist when proxy calls fail with `Unavailable`, `502`, or `504`.
+
+### 1) Validate listener vs ingress target port
+
+Inside backend container:
+
+```bash
+ss -lntp
+```
+
+If app listens on `*:50052` but ACA ingress targets `50051`, proxy calls will fail.
+Ensure backend listener port and ACA `targetPort` are identical.
+
+### 2) Validate internal network reachability from proxy
+
+Inside `nginx-proxy` container:
+
+```bash
+nc -vz -w 3 team6.internal.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io 443
+```
+
+`open` means routing is available to internal ingress.
+
+### 3) Validate upstream protocol
+
+For internal ACA ingress on 443, use TLS upstream in NGINX:
+
+```nginx
+grpc_ssl_server_name on;
+grpc_ssl_name team6.internal.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io;
+grpc_set_header Host team6.internal.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io;
+grpc_pass grpcs://team6.internal.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443;
+```
+
+### 4) Interpret common failure signatures
+
+- `504 Gateway Timeout`: upstream not reachable in time (wrong port, app cold start, network path issue).
+- `502 Bad Gateway` + HTML: upstream reached but not valid gRPC response path.
+- `connection refused`: no process listening on backend target port.
+
+### 5) Keep replicas warm while troubleshooting
+
+Cold starts can look like transient proxy failures. During debugging, set min replicas to 1 for the backend.
+
+### 6) Use proto-driven grpcurl when needed
+
+If reflection is unavailable/intermittent, call via local proto:
+
+```bash
+grpcurl -v -import-path proto -proto hardware/v1/hardware.proto \
+  -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":1}' \
+  nginx-proxy.wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io:443 \
+  haas.hardware.v1.HardwareService/RequestHardware
+```
+
 ## Testing
 
 ### Unit Tests
@@ -162,8 +261,7 @@ source .venv/bin/activate
 python -m pytest -v
 ```
 
-
-
+###
 ## Environment Variables
 
 | Variable    | Default                     | Description               |
