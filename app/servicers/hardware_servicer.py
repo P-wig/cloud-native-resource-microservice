@@ -178,7 +178,7 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
                         "assignedProjects": project_id,
                 },
                 "$set": {"updatedAt": now},
-                }, #"$pull": {"assignedProjects": project_id},#},
+                },
             )
         else:
             _hw_col().update_one(
@@ -189,41 +189,16 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
                         "checkedOut": -quantity,
                         "allocations.$[alloc].quantity": -quantity
                     },
-                    #"$inc": {"allocations.$[alloc].quantity": -quantity},
                     "$set": {"updatedAt": now},
                 },
                 array_filters=[{"alloc.project_id": project_id}],
             )
-        
-        #checked_out = hw.get("checkedOut", hw["capacity"] - hw["available"])    
-            
-
-        
-        #if checked_out < quantity:
-         #   context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
-          #  context.set_details(
-           #     f"Cannot return {quantity} units – only {checked_out} checked out"
-            #)
-            #return hardware_pb2.Hardware()
 
         now = datetime.now(timezone.utc)
         # We could calculate the new available count here, but since we're doing an atomic update
         # in the database, we can just specify the increments and let MongoDB handle it. The important
         # part is to ensure we don't allow returning more than what's checked out, which we validate above.
         # new_available = hw["available"] + quantity
-        """ new_checked_out = checked_out - quantity
-
-        update_ops: dict = {
-            "$inc": {"available": quantity, "checkedOut": -quantity},
-            "$set": {"updatedAt": now},
-        }
-
-        # If nothing remains checked out for this project, remove it from
-        # the assignedProjects list.
-        if new_checked_out == 0:
-            update_ops["$pull"] = {"assignedProjects": project_id}
-
-        _hw_col().update_one({"_id": hw["_id"]}, update_ops)"""
 
         updated = _hw_col().find_one({"_id": hw["_id"]})
         if not updated:
@@ -239,41 +214,23 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
         )
         return _doc_to_proto(updated)
     
-    def GetProjectHardware(self, request, context):# define new gRPC method
-        """ Return all hardware sets assigned to a specific project. 
-        This allows clients to query which hardware resources they currently 
-        have checked out. """
-        project_id = request.project_id # extract id from request
+    def GetProjectResourceStatus(self, request, context):
+        """Return the status of all hardware sets assigned to a project.
         
-        if not project_id: # validate input
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details("project_id is required")
-            return hardware_pb2.HardwareListResponse(hardware_sets=[]) # returns empty response
-        
-        # query MongoDB collection
-        #docs = list(_hw_col().find({"assignedProjects": project_id}))
-        docs = list(_hw_col().find({"allocations.project_id": project_id}))
-        hw_list = [_doc_to_proto(d) for d in docs] # convert to proto messages
-        return hardware_pb2.HardwareListResponse(
-            hardware_sets=hw_list
-        )
-    
-    def GetProjectResourceStatus(self, request, context): # define new gRPC method
-        """ Return the status of a specific hardware set for a project. 
-        This allows clients to check how many units of a hardware set they 
-        currently have checked out. """
-        project_id = request.project_id # get the project id from the request
+        This allows clients to check how many units of each hardware set they
+        currently have checked out, along with availability and capacity info.
+        """
+        project_id = request.project_id
         
         if not project_id:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("project_id is required")
-            return hardware_pb2.ProjectResourceStatusResponse(resources= []) 
+            return hardware_pb2.ProjectResourceStatusResponse(resources=[])
         
-        #docs = list(_hw_col().find({"assignedProjects": project_id}))
         docs = list(_hw_col().find({"allocations.project_id": project_id}))
         resources = []
         for d in docs:
-            alloc = next (
+            alloc = next(
                 (a for a in d.get("allocations", []) if a.get("project_id") == project_id),
                 None
             )
