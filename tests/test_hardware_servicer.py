@@ -240,6 +240,7 @@ def test_return_hardware_success_partial_return(servicer, fake_context, mock_col
         "available": 140,  # available before return
         "checkedOut": 60,  # checkedOut before return
         "assignedProjects": ["proj-1"],  # assigned project list
+        "allocations": [{ "project_id": "proj-1", "quantity": 60 }],
         "updatedAt": datetime.now(timezone.utc),  # timestamp
     }  # end pre-return doc
     after = {  # fake post-return DB document
@@ -249,6 +250,7 @@ def test_return_hardware_success_partial_return(servicer, fake_context, mock_col
         "available": 145,  # available increased by 5
         "checkedOut": 55,  # checkedOut decreased by 5
         "assignedProjects": ["proj-1"],  # project still present after partial return
+        "allocations": [{ "project_id": "proj-1", "quantity": 55 }],
         "updatedAt": datetime.now(timezone.utc),  # timestamp
     }  # end post-return doc
 
@@ -259,12 +261,14 @@ def test_return_hardware_success_partial_return(servicer, fake_context, mock_col
     assert fake_context.code is None  # assert success path set no error code
     assert response.available == 145  # assert updated available value
     assert response.checked_out == 55  # assert updated checked_out value
-
+    
     mock_collection.update_one.assert_called_once()  # assert update executed once
     update_filter, update_payload = mock_collection.update_one.call_args.args  # capture update call args
     assert update_filter == {"_id": "mongo-id-1"}  # assert update targeted correct doc
     assert update_payload["$inc"]["available"] == 5  # assert available increment
     assert update_payload["$inc"]["checkedOut"] == -5  # assert checkedOut decrement
+    #
+    assert update_payload["$inc"]["allocations.$[alloc].quantity"] == -5
     assert "$pull" not in update_payload  # assert no project removal on partial return
 
 
@@ -277,13 +281,15 @@ def test_return_hardware_over_return_sets_failed_precondition(servicer, fake_con
         "available": 190,  # currently available
         "checkedOut": 10,  # only 10 checked out
         "assignedProjects": ["proj-1"],  # project assigned
+        "allocations": [{ "project_id": "proj-1", "quantity": 10 }],
         "updatedAt": datetime.now(timezone.utc),  # timestamp
     }  # end mocked
 
     response = servicer.ReturnHardware(request, fake_context)  # call ReturnHardware
 
     assert fake_context.code == grpc.StatusCode.FAILED_PRECONDITION  # assert expected grpc code
-    assert "only 10 checked out" in fake_context.details  # assert expected details content
+    # assert "only 10 checked out" in fake_context.details  # assert expected details content
+    assert "project only has 10 allocated" in fake_context.details
     assert response == hardware_pb2.Hardware()  # assert empty response on failure
     mock_collection.update_one.assert_not_called()  # assert no update attempted
 
@@ -298,6 +304,7 @@ def test_return_hardware_full_return_includes_pull_project(servicer, fake_contex
         "available": 140,  # available before return
         "checkedOut": 10,  # checkedOut before return
         "assignedProjects": ["proj-1"],  # project currently assigned
+        "allocations": [{ "project_id": "proj-1", "quantity": 10 }],
         "updatedAt": datetime.now(timezone.utc),  # timestamp
     }  # end pre-return state
     after = {  # fake post-return state
