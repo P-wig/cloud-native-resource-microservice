@@ -14,8 +14,13 @@ import "google/protobuf/timestamp.proto";
 service HardwareService {
     rpc GetHardwareResources (google.protobuf.Empty)  returns (HardwareListResponse) {}
     rpc GetHardware          (GetHardwareRequest)     returns (Hardware)             {}
+    // handles checkout logic including validation, capacity checks 
     rpc RequestHardware      (HardwareRequest)        returns (Hardware)             {}
+    // handles returning hardware and updating availability
     rpc ReturnHardware       (HardwareRequest)        returns (Hardware)             {}
+    rpc GetProjectHardware   (ProjectRequest)         returns (HardwareListResponse) {}
+    // 
+    rpc GetProjectResourceStatus (ProjectRequest)     returns (ProjectResourceStatusResponse) {}
 }
 
 // --- Request Messages ---
@@ -43,4 +48,22 @@ message Hardware {
 
 message HardwareListResponse {
     repeated Hardware hardware_sets = 1;
+}
+
+// project 
+message ProjectRequest {
+    string project_id = 1;
+}
+
+message ProjectResourceStatus {
+    string hw_set_id = 1;
+    string name = 2;
+    // Per project usage
+    uint32 quantity_checked_out = 3;
+    uint32 available = 4; 
+    uint32 capacity = 5;
+}
+
+message ProjectResourceStatusResponse {
+    repeated ProjectResourceStatus resources = 1;
 }
