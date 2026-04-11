@@ -80,3 +80,15 @@ jobs:
             txwarbler/team6:latest
             txwarbler/team6:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
+
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Nginx-Dockerfile
+          push: true
+          tags: |
+            txwarbler/team6-nginx:latest
+            txwarbler/team6-nginx:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64

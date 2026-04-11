@@ -48,7 +48,6 @@ def _doc_to_proto(doc: dict) -> hardware_pb2.Hardware:
     ts.FromDatetime(
         updated if isinstance(updated, datetime) else datetime.now(timezone.utc)
     )
-
     return hardware_pb2.Hardware(
         hw_set_id=str(doc["_id"]),
         name=doc["hardwareName"],
@@ -142,7 +141,6 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details("Failed to retrieve updated hardware")
             return hardware_pb2.Hardware()
-
         logger.info(
             "Checked out %d units of %s for project %s",
             quantity,
@@ -263,6 +261,3 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
                 )
             )
         return hardware_pb2.ProjectResourceStatusResponse(resources=resources)
-        
-            
-        
