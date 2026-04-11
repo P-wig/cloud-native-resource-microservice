@@ -18,8 +18,6 @@ service HardwareService {
     rpc RequestHardware      (HardwareRequest)        returns (Hardware)             {}
     // handles returning hardware and updating availability
     rpc ReturnHardware       (HardwareRequest)        returns (Hardware)             {}
-    rpc GetProjectHardware   (ProjectRequest)         returns (HardwareListResponse) {}
-    // 
     rpc GetProjectResourceStatus (ProjectRequest)     returns (ProjectResourceStatusResponse) {}
 }
 

@@ -67,6 +67,23 @@ class HardwareServicer(hardware_pb2_grpc.HardwareServiceServicer):
         hw_list = [_doc_to_proto(d) for d in docs]
         return hardware_pb2.HardwareListResponse(hardware_sets=hw_list)
 
+    def GetHardware(self, request, context):
+        """Return a single hardware set by name."""
+        hw_set_id = request.hw_set_id
+
+        if not hw_set_id:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("hw_set_id is required")
+            return hardware_pb2.Hardware()
+
+        hw = _hw_col().find_one({"hardwareName": hw_set_id})
+        if not hw:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(f"Hardware set '{hw_set_id}' not found")
+            return hardware_pb2.Hardware()
+
+        return _doc_to_proto(hw)
+
     def RequestHardware(self, request, context):
         """Check out hardware for a project."""
         hw_set_id = request.hw_set_id
