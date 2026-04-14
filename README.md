@@ -153,6 +153,8 @@ grpcurl -v -d '{"hw_set_id":"HWSet1","project_id":"proj-abc","quantity":5}' \
 
 ## ACA Architecture and Proxying
 
+![ACA Deployment Architecture](docs/aca-architecture.png)
+
 Production deployment uses two Azure Container Apps in the same ACA environment:
 
 - `nginx-proxy` (external ingress): public entrypoint for all client traffic
@@ -160,14 +162,7 @@ Production deployment uses two Azure Container Apps in the same ACA environment:
 
 ### Request Path
 
-```text
-Internet Client (grpcurl)
-  -> nginx-proxy.<env>.<region>.azurecontainerapps.io:443
-  -> nginx-proxy container (listen 8080, HTTP/2)
-  -> grpcs://team6.internal.<env>.<region>.azurecontainerapps.io:443
-  -> ACA internal ingress (Envoy)
-  -> team6 container gRPC listener
-```
+See diagram above. Traffic flows: Internet → nginx-proxy ACA Envoy (:443) → nginx rate limiter (:8080) → team6 internal ACA Envoy (:443) → gRPC service (:50052) → MongoDB.
 
 ### Proxy Behavior
 

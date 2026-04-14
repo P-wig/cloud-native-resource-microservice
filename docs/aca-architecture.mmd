@@ -1,0 +1,32 @@
+graph TD
+    Client["🌐 Internet Client\ngrpcurl / external app\nHTTPS · gRPC"]
+
+    subgraph ACA["ACA Environment — wonderfulpond-ecedce94.northcentralus.azurecontainerapps.io"]
+        direction TB
+
+        subgraph PROXY["nginx-proxy  (External Ingress)"]
+            direction TB
+            ENVOY_EXT["ACA Envoy\n:443  TLS termination"]
+            NGINX["nginx 1.27\nHTTP/2 · listen :8080\nrate limit: 1 req/s · burst 10"]
+            ENVOY_EXT --> NGINX
+        end
+
+        subgraph BACKEND["team6  (Internal Ingress)"]
+            direction TB
+            ENVOY_INT["ACA Envoy\n:443  internal only"]
+            GRPC["gRPC Service\nPython 3.12 · grpcio\nlisten :50052"]
+            ENVOY_INT --> GRPC
+        end
+
+        MONGO[("MongoDB 7\n:27017")]
+    end
+
+    Client -- "HTTPS / gRPC :443" --> ENVOY_EXT
+    NGINX -- "grpcs :443\nSNI + Host = team6.internal FQDN" --> ENVOY_INT
+    GRPC -- "pymongo" --> MONGO
+
+    style ACA fill:#f0f4ff,stroke:#4a6cf7,stroke-width:2px
+    style PROXY fill:#e8f5e9,stroke:#43a047,stroke-width:1.5px
+    style BACKEND fill:#fff3e0,stroke:#fb8c00,stroke-width:1.5px
+    style MONGO fill:#fce4ec,stroke:#e53935,stroke-width:1.5px
+    style Client fill:#e3f2fd,stroke:#1e88e5,stroke-width:1.5px
